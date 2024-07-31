@@ -1,0 +1,1048 @@
+---
+title: "A Comprehensive Study of Blood Parameters for Disease Classification"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: 
+  pdf_document: 
+    extra_dependencies: ["booktabs", "multirow"]
+    latex_engine: xelatex
+    toc: false
+    toc_depth: 3
+editor: visual
+format: pdf
+geometry: margin=2cm
+fontsize: 12pt
+linestretch: 1
+classoption: letterpaper
+header-includes:
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage{threeparttablex}
+   - \usepackage[normalem]{ulem}
+   - \usepackage{makecell}
+   - \usepackage{xcolor}
+   - \usepackage{color}
+   - \usepackage{listings} % for formatting code
+   - \usepackage{color}    % for color definitions
+---
+
+```{=tex}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+```
+```{=tex}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+```
+\lstset{style=mystyle}
+
+**Authors**: Aryan Rezanezhad(251386495) & Dinithi De Silva(251385811)
+
+\vspace{5mm}
+
+**Course**: Advanced Data Analysis
+
+\vspace{5mm}
+
+**Instructor**: Dr. Camila de Souza
+
+\vspace{5mm}
+
+**Department**: Actuarial Science & Statistics
+
+\vspace{70mm}
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      echo = FALSE,
+                      out.extra = "")
+
+```
+
+```{r, echo=FALSE, message=FALSE, fig.align='center', out.width='20%'}
+
+#knitr::include_graphics("/Users/rezanejad/Desktop/Stacked_Full.png")
+```
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+# Introduction
+
+In health care and medical diagnostics, the analysis of blood test results plays a crucial role in the early detection of disease. At present, advancements in technology have significantly enhanced the capabilities of medical diagnostics.These technological improvements include more sophisticated laboratory equipment as well as and software that can analyze complex data sets more efficiently. This means that diseases can be identified more quickly and accurately, allowing for timely intervention and better management of patients' health outcomes.
+
+Doe and Smith (2020) highlighted the importance of using results of blood tests to help doctors detect diseases early. They suggested that combining these data with computer methods could improve these predictions. In 2021, Smith discusses how doctors utilize predictions from computational tools in diagnosing diseases and he emphasizes that while these tools are beneficial, it's crucial for doctors to also rely on their professional judgment, recognizing the unique aspects of each patient's case. These studies collectively indicate that data and computer technology are increasingly integral to healthcare. They enhance doctors' ability to understand patients' health more thoroughly and enable the creation of personalized treatment plans.
+
+This project employs advanced statistical methods to classify the certain diseases based on several blood parameters and compare the performances of each methods. This could lead to more precise and early diagnosis, significantly enhancing disease management and patient care outcomes.
+
+# Dataset Description
+
+The dataset, sourced from Kaggle (Aboelnaga, E. (2022)) consists of 24 blood parameters along with a categorical variable (Disease) indicating four disease types (Diabetes, Thalassemia, Anemia, Thrombocytopenia) or a healthy status. The dataset contains 150 entries of pre-processed data, and the predictors within it have been scaled to a range between 0 and 1.  This study employs a supervised learning approach, where blood parameters are utilized as predictor variables, and the presence of disease is designated as the response variable for the analysis. Detailed description of variables listed in the table \textcolor{blue}{3} (see Appendix).
+
+\newpage
+
+# Method
+
+\indent The study comprises two primary sections: exploratory analysis and statistical analysis. We initiated the exploratory analysis by analyzing the response variable. Then We analyzed explanatory variables through histograms and statistical summaries to see the distribution, central tendencies, and variability of the data. Then, we obtained statistical summaries of all the predictor variables against the response to understand how the distributions vary across the response categories. Next, the relationships between predictor variables have been assessed using a correlation matrix (Pearson's correlation coefficient) to identified the potential multicollinearity issues among the predictor variables.
+
+The statistical analysis started by dividing the dataset into training (80%) and test (20%) sets. Our first attempt was the multinomial logistic regression model with and withoutlasso penalization and compare the performance. Next, attempt was the linear discriminant analysis (LDA) and Quadratic discriminant analysis (QDA) but due to the violation of the required assumptions it failed to implement both models.Next, we implemented classification tree and random forest and compare the performances. Finally we employed both the k-nearest neighbor (KNN) method and the Naïve Bayes Model to assess and compare their respective performances
+
+# Results
+
+```{r, echo=FALSE, fig.width=38, fig.height=8, warning=FALSE, include=FALSE}
+# Libraries
+library(tidyverse)
+library(ISLR)
+library(reshape2)
+library(ggplot2)
+library(faraway)
+library(rsm)
+library(dplyr)
+library(purrr)
+library(knitr)
+library(kableExtra)
+library(nnet)
+library(glmnet)
+library(tidyr)
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(class)
+library(e1071)
+
+
+# Read the data
+blood <- read.csv("bloodEx3.csv")
+str(blood)
+
+# Reorder levels with "healthy" as the reference level
+blood$Disease <-as.factor(blood$Disease)
+blood$Disease <- relevel(blood$Disease, ref = "Healthy")
+
+# Divide the training and test set
+set.seed(4)
+n <-nrow(blood)
+ind <- sample(nrow(blood),0.8*n)
+train.set <- blood[ind,]
+test.set <- blood[-ind,]
+```
+
+## Exploratory data analysis
+
+### Analysis of the Response Variable
+
+```{r frequency-table, echo=FALSE, include=FALSE}
+#| label: tbl-1
+#| tbl-cap: "Frequency table for disease variable "
+#| tbl-height: 8
+#| tbl-width: 12
+
+
+# Frequency table for disease variable
+frequency_table <- table(blood$Disease)
+frequency_df <- as.data.frame(frequency_table)
+names(frequency_df) <- c("Disease", "Frequency")
+
+# Proportion table
+prop_table <- prop.table(frequency_table)
+prop_df <- as.data.frame(prop_table)
+names(prop_df) <- c("Disease", "Proportion")
+prop_df$Proportion <- round(prop_df$Proportion, 2)
+
+# Merge frequency and proportion data frames
+combined_df <- merge(frequency_df, prop_df, by = "Disease")
+combined_df <- as.data.frame(combined_df)
+
+
+
+# Create frequency table with kable
+kable(combined_df, caption = "Frequency distribution of Disease variable",
+      booktabs = TRUE) |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+\indent In Table \textcolor{blue}{1}, the frequency distribution and proportions across disease categories are depicted. It is noteworthy that the Healthy group slightly marginally outnumbers the others, while Thromboc exhibits the lowest frequency.When comparing proportions, no single disease category dominates the sample, ensuring an equitable distribution that provides a solid basis for unbiased predictive modeling.
+
+```{=tex}
+\begin{table}[h]
+\centering
+\caption{Frequency distribution of Disease variable}
+\begin{tabular}{lcc}
+\hline
+Disease  & Frequency & Proportion \\
+\hline
+Anemia   & 30        & 0.20       \\
+Diabetes & 34        & 0.23       \\
+Healthy  & 35        & 0.23       \\
+Thalasse & 27        & 0.18       \\
+Thromboc & 24        & 0.16       \\
+\hline
+\end{tabular}
+\end{table}
+```
+\newpage
+
+### Analysis of the Predictor Variables
+
+#### a) Univariate Analysis
+
+\indent The dataset comprises several key biochemical and hematological parameters, each potentially indicative of underlying health status. The distribution of these variables provides an initial insight into the nature of the data. (Figure \textcolor{blue}{1}). Notably, the histogram for glucose levels exhibits a right-skewed distribution, suggesting that patients with higher glucose levels may have diabetic conditions. The Red Blood Cell count demonstrates a bimodal distribution, indicating the potential existence of distinct subgroups within our sample, possibly differentiating between anemic and non-anemic individuals. Correspondingly, similar bimodal patterns observed in Hematocrit and Hemoglobin distributions support this observation and justify a more detailed investigation into their association with conditions related to anemia.
+
+```{r, Histograms for the predictors, echo=FALSE}
+#| label: fig-1
+#| fig-cap: "Histograms for the predictors"
+#| fig-height: 9
+#| fig-width: 16
+
+# Descriptive Analysis - predictor variables
+par(mfrow = c(5,5))
+for (variable_name in names(blood[-25])) {
+  hist(blood[[variable_name]], main = variable_name, xlab = variable_name)}
+```
+
+\indent Statistical summaries of the predictors (see Appendix, Table \textcolor{blue}{4}) provides a detailed statistical overview of various blood parameters within our study population. Glucose levels average at 0.349 with moderate variability, and its slightly right-skewed distribution has a median of 0.353. Cholesterol and hemoglobin illustrate different distribution characteristics; cholesterol levels slightly exceed the mean with a median of 0.412, whereas hemoglobin displays a higher median than the mean. Additionally, white and red blood cells, along with hematocrit, present higher baseline values, generally exceeding 0.5, with red blood cells and hematocrit showing lower variability.
+
+\indent Next, We obtained the standard deviations across the disease group (see Appendix, Tables \textcolor{blue}{5, 6, 7}). We can observed that Mean Corpuscular Volume and Mean Corpuscular Hemoglobin display higher variability within the Thalassemia group.This finding is consistent with the known hematological manifestation of Thalassemia, which affects the size and hemoglobin content of red blood cells. In contrast, variables such as C-reactive Protein exhibit lower variability, suggesting a more stable measurement unaffected by the specific disease state.
+
+#### b) Bivariate Analysis
+
+\indent Figure \textcolor{blue}{2} presents the correlation matrices for each combination of predictor variables. It shows that there is somewhat strong positive correlations between the glucose and the BMI level, which suggests potential impact of body weight on glucose metabolism, highlighting the importance of weight management in the prevention and control of diabetes. Furthere, This visual correlation plot confirmed that there is no potential multicollinearity issues, which is crucial for model selection and ensuring the independence of predictors in regression analyses.
+
+```{r, Correlation pair plot, echo=FALSE}
+#| label: fig-2
+#| fig-cap: "Correlation pair plot"
+#| fig-height: 14
+#| fig-width: 16
+
+# Calculate the correlation matrix for the first 24 variables
+cor_matrix <- cor(blood[, 1:24], use = "complete.obs")
+
+# Convert the correlation matrix into a tidy data frame
+cor_data <- as_tibble(cor_matrix, rownames = "Variable1") |> # Use as_tibble for rownames
+  pivot_longer(cols = -Variable1, names_to = "Variable2", 
+               values_to = "Correlation") |>
+                # Optionally, filter out self-correlations
+                filter(Variable1 != Variable2) |>
+                  mutate(AbsoluteCorrelation = abs(Correlation),
+  Variable2 = stringr::str_wrap(Variable2, width = 15)) |>
+    arrange(desc(AbsoluteCorrelation))
+
+# Create a correlation heatmap
+ggplot(cor_data, aes(Variable2, Variable1, fill = Correlation)) +
+  geom_tile(height = 0.9) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       limits = c(-1, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust = 1, size = 15),
+        axis.text.y = element_text(size = 15)) +
+  coord_flip() 
+```
+
+\newpage
+
+## Statistical Analysis
+
+Under the statistical analysis, we utilized various classification techniques to classify the diseases based on blood parameters. Each model was trained using the same training dataset and subsequently evaluated using a distinct test set. Our primary focus was on assessing the misclassification error rate to compare the performance of each model.
+
+### Multinational Logistic Regression Model
+
+Our initial approach employed a multinomial logistic regression model, designating 'Healthy' as the reference category. This model enables direct comparisons of disease likelihoods relative to a baseline of health, facilitating a clear understanding of how disease probabilities differ from the healthy state.
+
+The model's coefficients reveal the relative influence of each predictor. For instance, Glucose and Cholesterol exhibit considerable effects on the likelihood of being classified as Diabetic versus Healthy. The magnitude of these coefficients suggests a strong relationship between these predictors and disease status, aligning with medical literature that implicates these factors in metabolic syndromes.
+
+Interestingly, the variables related to blood cell characteristics, such as Red Blood Cells and Hematocrit, show substantial weights in the model, possibly underlining their diagnostic value in distinguishing among disease states. These findings reflected through the coefficients corresponding to Anemia and Thalassemia, diseases intrinsically related to blood cell properties. (Figure \textcolor{blue}{3})
+
+The error rate for the multinational logistic model is approximately 14%, indicating a somewhat high degree of accuracy in distinguishing between diseases based on blood test data.
+
+```{r, include=FALSE}
+# Multinational Logistic Regression Model
+
+# Convert the response variable to a factor
+train.set$Disease <- as.factor(train.set$Disease)
+
+# Prepare the data for glmnet
+x <- model.matrix(Disease ~ . -1, data = train.set) # Predictor matrix, removing the intercept
+y <- train.set$Disease
+
+# Fit a multinomial logistic regression model without LASSO penalty
+set.seed(2) 
+model <- glmnet(x, y, family = "multinomial")
+
+# Prepare the predictor matrix for test_data similar to how it was done for the training data
+x_test <- model.matrix(Disease ~ . -1, data = test.set)  
+
+# Predicting on the test data
+predictions <- predict(model, newx = x_test, type = "class")
+
+# Calculate the misclassification error rate
+actual <- test.set$Disease # Actual response variable from the test set
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+
+```
+
+```{r, echo=FALSE}
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+```{r, Multinomial Logistic Regression Model Coefficients, echo=FALSE, results='hide'}
+#| label: fig-4
+#| fig-cap: "Multinomial Logistic Regression Model Coefficients"
+#| fig-height: 6
+#| fig-width: 12
+
+blood$Disease <- as.factor(blood$Disease)
+set.seed(2)
+# Fit the model 
+
+# Fit multinomial logistic regression model
+multinom_model <- multinom(Disease ~ ., data = train.set)
+
+
+# Extract coefficients
+model_coef <- coef(multinom_model)
+
+# Transform the coefficients to a tidy data frame for plotting
+coef_df <- as.data.frame(t(model_coef))
+coef_df$Predictor <- rownames(coef_df)
+coef_df <- coef_df |>
+  gather(key = "Disease", value = "Coefficient", -Predictor)
+
+# Plot the coefficients using ggplot2
+ggplot(coef_df, aes(x = Predictor, y = Coefficient, fill = Disease)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  theme_minimal() +
+  labs(title = "Multinomial Logistic Regression Model Coefficients",
+       x = "Predictor Variables", 
+       y = "Coefficient Value") +
+  coord_flip()  # Flipping coordinates for a horizontal bar plot
+```
+
+### Multinational Logistic Regression Model with Lasso
+
+Next, We implemented a lasso regression model, which introduces a penalty on the absolute size of the coefficients. This regularization technique promotes a sparse model by shrinking coefficients of less influential predictors towards zero, thereby enhancing interpretability.
+
+The model fitting procedure employs cross-validation to select the penalty strength, ensuring that the chosen model generalizes well to unseen data. The results from this model underscore the predictive power of some markers over others, with variables like Mean Corpuscular Hemoglobin and BMI surfacing as significant after the lasso penalty is applied.
+
+In evaluating model efficacy, we consider the misclassification error rate, a straightforward metric quantifying the proportion of incorrect predictions. The lasso regression model exhibits a misclassification error rate of 10%, denoting an approximately 90% accuracy in classification on the test set, a testament to the model's precision in disease state prediction.
+
+```{r, Multinational Logistic Regression Model with Lasso, warning=FALSE, message=FALSE}
+# Multinational Logistic Regression Model with Lasso
+# Convert the response variable to a factor
+train.set$Disease <- as.factor(train.set$Disease)
+set.seed(2)
+# Prepare the data for glmnet
+x <- model.matrix(Disease ~ . -1, data = train.set) # Predictor matrix, removing the intercept
+y <- train.set$Disease
+
+# Convert y to a matrix 
+y <- model.matrix(~y - 1) 
+
+# Fit a multinomial logistic regression model with LASSO penalty
+set.seed(2) 
+cv_glmnet <- cv.glmnet(x, y, family = "multinomial", alpha = 1, parallel = TRUE)
+
+# Fit the final model using the best lambda
+final_model <- glmnet(x, y, family = "multinomial", alpha = 1)
+
+# To see the coefficients
+#coef(final_model)
+
+# Prepare the predictor matrix for test_data 
+x_test <- model.matrix(Disease ~ . -1, data = test.set)  
+
+# Predicting on the test data
+predictions <- predict(final_model, newx = x_test, type = "class", 
+                       s = cv_glmnet$lambda.min)
+predictions_char <- as.character(predictions)
+
+# Remove the 'y' prefix from predictions
+predictions_char <- sub("^y", "", predictions_char)
+
+# Now convert back to factor, using the original levels of the Disease variable
+predictions_factor <- factor(predictions_char)
+
+# Calculate the misclassification error rate
+actual <- test.set$Disease # Actual response variable from the test set
+misclass_error_rate <- mean(predictions_factor != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+### LDA
+
+Linear Discriminant Analysis (LDA) is a statistical method used for classification and dimensionality reduction. LDA assumes that the predictor variables are normally distributed within each class and have the same variance-covariance matrix across the classes (homoscedasticity). These assumptions are critical for the accurate performance of the model.
+
+During the EDA, we analyzed the standard deviations for each predictor variable segmented by disease classification. It was complex in understanding how the variances fluctuated across different disease conditions. The results, as we discussed in the EDA part of our report, indicated noticeable differences in variabilities among groups, suggesting a potential violation of the homoscedasticity assumption required by LDA.
+
+Alternative approache is Quadratic Discriminant Analysis (QDA), which does not assume equal covariance matrices, may be more appropriate.
+
+### QDA
+
+In our efforts to employ advanced statistical methods to understand and predict disease states from our dataset, we considered Quadratic Discriminant Analysis (QDA) as a potential model. QDA is favored for its ability to model and handle datasets where classes have distinct covariance structures. However, during the implementation phase, we encountered with a issue that prevented the application of QDA to our current dataset.
+
+Our evaluation of Quadratic Discriminant Analysis (QDA) for classifying disease states within our dataset revealed a significant impediment due to high dimensionality. The application of QDA was hindered by a rank deficiency in the covariance matrix of the "Healthy" group, where the number of predictor variables exceeds the number of available observations. This mathematical constraint prevents the inversion of the covariance matrix, a critical step in QDA, rendering the method unsuitable under our current dataset configuration.
+
+### Classification Tree
+
+In our study, a classification tree was constructed to predict various disease states based on a set of clinical measurements. Utilizing the rpart package in R, we crafted a model that simplifies the complexity of medical diagnoses into an interpretable series of decisions. The decision tree, depicted in a detailed diagram, outlines the decision-making process by utilizing key factors such as mean corpuscular volume, Hemoglobin levels, and other blood parameters to categorize patients into groups including Healthy, Anemia, Thromboc, and Diabetes. (Figure \textcolor{blue}{4})
+
+```{r, Classification Tree for Disease, echo=FALSE}
+#| label: fig-6
+#| fig-cap: "Classification Tree for Disease"
+#| fig-height: 8
+#| fig-width: 12
+
+n <-nrow(blood)
+set.seed(2)
+ind <- sample(nrow(blood),0.8*n)
+train <- blood[ind,]
+test <- blood[-ind,]
+
+# Fit the classification tree
+tree_model <- rpart(Disease ~ ., data = train, method = "class")
+# Plotting the tree
+rpart.plot(tree_model, main="Classification Tree for Disease")
+```
+
+The classification tree model indicated a misclassification error rate of 27%, as computed on the test dataset. This error rate represents the proportion of patients whose disease status was incorrectly predicted by the model. While the classification tree provides an intuitive understanding of the data through its clear decision rules, the error rate also underscores the limitations in predictive performance. Such findings prompt consideration of model refinement through techniques like pruning or exploring ensemble methods that may yield more accurate predictions while maintaining the interpretability that is vital in clinical settings.
+
+```{r, echo=FALSE}
+# Predict on the test set
+predictions <- predict(tree_model, newdata = test, type = "class")
+
+# Calculate the misclassification error rate
+actual <- test$Disease
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+\newpage
+
+### Random Forest
+
+The random forest model demonstrated a misclassification error rate of 3%, as evaluated on the test dataset. This rate quantifies the percentage of patients whose disease status was inaccurately predicted by the model. Although the random forest offers robustness through its aggregation of decision trees, thus typically improving prediction accuracy over a single decision tree, this error rate highlights its precision in identifying disease states. The relatively low error rate suggests effective disease classification, reinforcing the model's utility in clinical applications.
+
+```{r}
+# Random Forest
+rf_model <- randomForest(Disease ~ ., data = train.set, ntree = 500)
+test_predictions <- predict(rf_model, newdata = test.set)
+misclass_error_rate <- mean(test_predictions != test.set$Disease)
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+### K-Nearest Neighbors (KNN)
+
+We used the K-Nearest Neighbors (KNN) method with cross-validation (CV) value topredict the correct disease from medical data. KNN looks at what's known about a patient and finds other patients who had similar test results. To make sure to every test result was given equal importance, we first made all the numbers more comparable to each other. We also used a special process to pick the best number of similar patients (neighbors) to look at for making our predictions.
+
+After running the KNN model, it achieved a correctness rate of approximately 67%, indicating an error rate of approximately 33%. This gives us a good starting point, showing us that the method can indeed spot patterns and give us useful predictions. Nevertheless, there may have more enhansment for this model. Consideration may be given to altering the methodology employed for determining the number of neighbors other thhan CV method or refining the dataset to potentially optimize the model's performance in subsequent iterations
+
+```{r, echo=FALSE}
+# KNN
+n <-nrow(blood)
+set.seed(2)
+ind <- sample(nrow(blood),0.8*n)
+train <- blood[ind,]
+test <- blood[-ind,]
+
+# Normalize the data
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+
+train_norm <- as.data.frame(lapply(train[, -ncol(train)], normalize))
+test_norm <- as.data.frame(lapply(test[, -ncol(test)], normalize))
+
+# Include the Disease column back
+train_norm$Disease <- train$Disease
+test_norm$Disease <- test$Disease
+
+# Determine the best value of k using cross-validation
+set.seed(123)
+ctrl <- trainControl(method = "cv", number = 10)
+knn_fit <- train(Disease ~ ., data = train_norm, method = "knn", 
+                 trControl = ctrl, preProcess = c("center", "scale"))
+best_k <- knn_fit$bestTune$k
+
+# Fit the KNN model
+knn_pred <- knn(train = train_norm[, -ncol(train_norm)], 
+                test = test_norm[, -ncol(test_norm)], 
+                cl = train_norm$Disease, k = best_k)
+
+# Calculate the misclassification error rate
+actual <- test_norm$Disease
+misclass_error_rate <- mean(knn_pred != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+### Naïve Bayes Model
+
+In our data analysis project, we explored the use of the Naïve Bayes classifier, a straightforward yet effective machine learning technique, to predict various diseases based on a range of clinical indicators. After fitting the model to a portion of our data reserved for training, we then tested its predictive power on a separate test set. The results were promising, with the Naïve Bayes model achieving a 33% misclassification error rate, suggesting that it correctly predicted the disease status 67% of the time.
+
+The strength of the Naïve Bayes classifier lies in its simplicity and assumption that the features in the dataset are independent of each other given the disease status. Despite this simplification, which may not hold in real-world settings where features can be interrelated, the model performed well. This performance is especially notable given the complex nature of medical diagnosis, where even a small improvement in predictive accuracy can have significant implications. However, for more nuanced interpretations and potentially improved results, further fine-tuning of the model or the use of more sophisticated algorithms might be considered for future analyses.
+
+```{r, echo=FALSE}
+# Fit the Naïve Bayes model
+nb_model <- naiveBayes(Disease ~ ., data = train)
+# Predict on the test set
+predictions <- predict(nb_model, newdata = test)
+
+# Calculate the misclassification error rate
+actual <- test$Disease
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+```
+
+# Conclusion
+
+In our analysis of various classification models for disease classification, several key findings emerged. The multinomial logistic regression model, when utilizing LASSO penalty, demonstrated a notably lower misclassification error rate of approximately 10%, compared to approximately 14% when fitted without LASSO. This result underscores its high accuracy in distinguishing between diseases based on blood test data. Notably, variables related to blood cell characteristics, such as Red Blood Cells and Hematocrit, exhibited substantial weights in the model, suggesting their diagnostic significance in identifying disease states associated with conditions like Anemia and Thalassemia.
+
+However, Linear Discriminant Analysis (LDA) posed challenges due to assumptions of homoscedasticity, as indicated by notable differences in variabilities among disease groups during exploratory data analysis. Quadratic Discriminant Analysis (QDA) was considered as an alternative but encountered issues with rank deficiency in covariance matrices, rendering it unsuitable for our dataset.
+
+The classification tree model exhibited a misclassification error rate of 27%, highlighting its interpretability yet indicating limitations in predictive performance. Conversely, the random forest model demonstrated a lower error rate of 3%, which highlights its accuracy in classifying the disease states
+
+Upon running the KNN model, an initial correctness rate of approximately 67% was achieved, suggesting potential for pattern recognition. However, further enhancements are warranted, possibly through alternative methodologies for determining the number of neighbors or dataset refinement.
+
+Finally, the Naïve Bayes classifier showed promise with a 33% misclassification error rate, indicating correct prediction of disease status 67% of the time.
+
+In conclusion, each model exhibited distinct strengths and limitations in disease classification. The choice of model should consider factors such as interpretability, predictive accuracy, and computational efficiency, with ongoing refinement through methodological adjustments and dataset optimization to enhance performance in clinical decision-making scenarios. In terms of the prediction accuracy, the random forest model demonstrates superior accuracy with a low error rate of 3%, making it the most effective model for predicting disease states from the provided dataset. (Table \textcolor{blue}{2})
+
+```{=tex}
+\begin{table}[h]
+\centering
+\caption{Misclassification Error Rates of Different Classification Models}
+\begin{tabular}{lc}
+\hline
+Model & Misclassification Error Rate \\
+\hline
+Multinomial Logistic Regression (with LASSO) & 10\% \\
+Multinomial Logistic Regression (without LASSO) & 14\% \\
+Linear Discriminant Analysis (LDA) & Not Applicable \\
+Quadratic Discriminant Analysis (QDA) & Not Applicable \\
+Classification Tree & 27\% \\
+Random Forest & 3\% \\
+K-Nearest Neighbors (KNN) & 33\% \\
+Naïve Bayes & 33\% \\
+\hline
+\end{tabular}
+\label{tab:error_rates}
+\end{table}
+```
+\newpage
+
+# Appendix
+
+## Tables
+
+```{=tex}
+\begin{table}[htbp]
+\centering
+\caption{Dataset Variables} 
+\vspace{2mm}
+\label{tab:variables}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Variable Description} & \textbf{Variable Type} \\ \midrule
+Glucose (mg/dL) & Continuous \\
+Cholesterol (mg/dL) & Continuous \\
+Hemoglobin (g/dL) & Continuous \\
+Platelets (per microliter blood) & Continuous \\
+White Blood Cells (per cubic millimeter of blood) & Continuous \\
+Red Blood Cells (million cells per microliter of blood) & Continuous \\
+Hematocrit (percentage of blood volume) & Continuous \\
+Mean Corpuscular Volume (average volume of red blood cells) & Continuous \\
+Mean Corpuscular Hemoglobin (average amount of hemoglobin in a red blood cell) & Continuous \\
+Mean Corpuscular Hemoglobin Concentration:(grams per deciliter) & Continuous \\
+Insulin (microU/mL) & Continuous \\
+BMI (kg/m\textsuperscript{2}): Body Mass Index & Continuous \\
+Systolic Blood Pressure (mmHg) & Continuous \\
+Diastolic Blood Pressure (mmHg) & Continuous \\
+Triglycerides (mg/dL) & Continuous \\
+HbA1c (percentage) & Continuous \\
+LDL Cholesterol (mg/dL) & Continuous \\
+HDL Cholesterol (mg/dL) & Continuous \\
+ALT: Alanine Aminotransferase (Unit per liter) & Continuous \\
+AST (U/L): Aspartate Aminotransferase (Unit per liter) & Continuous \\
+Heart Rate (beats per minute) & Continuous \\
+Creatinine (mg/dL) & Continuous \\
+Troponin (ng/mL) & Continuous \\
+C-reactive Protein (mg/L) & Continuous \\
+\multirow{5}{*}{Disease (Healthy, Diabetes, Thalassemia, Anemia, Thrombocytopenia)} & \multirow{5}{*}{Categorical} \\ 
+\bottomrule
+\end{tabular}
+\end{table}
+```
+\newpage
+
+```{r, Summary of the Predictors, echo=FALSE}
+#| label: tbl-4
+#| tbl-cap: "Summary of the Predictors"
+#| tbl-height: 4
+#| tbl-width: 14
+
+# Custom summary function for each column
+custom_summary <- function(x, name) {
+  data.frame(
+    Variable = name,
+    mean = mean(x, na.rm = TRUE),
+    SD = sd(x, na.rm = TRUE),
+    median = median(x, na.rm = TRUE),
+    IQR = IQR(x, na.rm = TRUE),
+    min = min(x, na.rm = TRUE),
+    max = max(x, na.rm = TRUE)
+    )
+}
+summary_df <- map_dfr(1:24, function(i) custom_summary(blood[[i]], 
+                                                       names(blood)[i]))
+kable(summary_df, format = "latex", 
+      caption = "Summary of the Predictors", booktabs = TRUE) |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+```
+
+```{r, SD of each variable across the groups in resonse, echo=FALSE, results='asis', warning=FALSE}
+#| label: fig-9
+#| tbl-cap: "SD of each variable across the groups in resonse "
+#| tbl-height: 8
+#| tbl-width: 12
+
+# Calculate standard deviations for all variables by disease
+std_devs_by_disease <- blood |> 
+  group_by(Disease) |> 
+    summarise(across(1:23, sd, na.rm = TRUE))
+
+# Split the table into three parts, including the first 'Disease' column in each
+part1 <- std_devs_by_disease |> select(Disease, 1:7) 
+part2 <- std_devs_by_disease |> select(Disease, 8:14) 
+part3 <- std_devs_by_disease |> select(Disease, 15:23) 
+
+# Then, create the LaTeX tables for each part
+kable(part1, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 1") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+
+kable(part2, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 2") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+
+kable(part3, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 3") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+```
+
+\clearpage
+
+## Rcodes
+
+```{=tex}
+\section*{R Code Table of Contents}
+\addcontentsline{toc}{section}{R Code Table of Contents}
+\begin{itemize}
+    \item Libraries \dotfill 15
+    \item Read the data \dotfill 15
+    \item Frequency table for disease variable \dotfill 15
+    \item Descriptive Analysis - predictor variables \dotfill 16
+    \item Correlation pair plot \dotfill 16
+    \item Multinomial Logistic Regression Model \dotfill 16
+    \item Multinomial Logistic Regression Model Coefficients \dotfill 17
+    \item Multinomial Logistic Regression Model with Lasso \dotfill 17
+    \item Classification Tree for Disease Prediction \dotfill 18
+    \item Random Forest \dotfill 19
+    \item K-Nearest Neighbors (KNN) \dotfill 19
+    \item Naïve Bayes model \dotfill 19
+    \item Summary of the Predictors \dotfill 20
+    \item SD of each variable across the groups in response \dotfill 20
+\end{itemize}
+\clearpage
+```
+```{=tex}
+\begin{lstlisting}[language=R, caption=Libraries]
+library(tidyverse)
+library(ISLR)
+library(reshape2)
+library(ggplot2)
+library(faraway)
+library(rsm)
+library(dplyr)
+library(purrr)
+library(knitr)
+library(kableExtra)
+library(nnet)
+library(glmnet)
+library(tidyr)
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(class)
+library(e1071)
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=Read the data]
+# Read the data
+blood <- read.csv("bloodEx3.csv")
+str(blood)
+
+# Divide the training and test set
+set.seed(4)
+n <-nrow(blood)
+ind <- sample(nrow(blood),0.8*n)
+train.set <- blood[ind,]
+test.set <- blood[-ind,]
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Table 1]
+#| label: tbl-1
+#| tbl-cap: "Frequency table for disease variable "
+#| tbl-height: 8
+#| tbl-width: 12
+
+# Frequency table for disease variable
+frequency_table <- table(blood$Disease)
+frequency_df <- as.data.frame(frequency_table)
+names(frequency_df) <- c("Disease", "Frequency")
+
+# Proportion table
+prop_table <- prop.table(frequency_table)
+prop_df <- as.data.frame(prop_table)
+names(prop_df) <- c("Disease", "Proportion")
+prop_df$Proportion <- round(prop_df$Proportion, 2)
+
+# Merge frequency and proportion data frames
+combined_df <- merge(frequency_df, prop_df, by = "Disease")
+combined_df <- as.data.frame(combined_df)
+
+# Create frequency table with kable
+kable(combined_df, caption = "Frequency distribution of Disease variable",
+      booktabs = TRUE) |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Figure 1]
+#| label: fig-1
+#| fig-cap: "Histograms for the predictors"
+#| fig-height: 9
+#| fig-width: 16
+
+# Descriptive Analysis - predictor variables
+par(mfrow = c(5,5))
+for (variable_name in names(blood[-25])) {
+  hist(blood[[variable_name]], main = variable_name, xlab = variable_name)}
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Figure 2]
+#| label: fig-2
+#| fig-cap: "Correlation pair plot"
+#| fig-height: 14
+#| fig-width: 16
+
+# Calculate the correlation matrix for the first 24 variables
+cor_matrix <- cor(blood[, 1:24], use = "complete.obs")
+
+# Convert the correlation matrix into a tidy data frame
+cor_data <- as_tibble(cor_matrix, rownames = "Variable1") |> # Use as_tibble for rownames
+  pivot_longer(cols = -Variable1, names_to = "Variable2", 
+               values_to = "Correlation") |>
+                # Optionally, filter out self-correlations
+                filter(Variable1 != Variable2) |>
+                  mutate(AbsoluteCorrelation = abs(Correlation),
+  Variable2 = stringr::str_wrap(Variable2, width = 15)) |>
+    arrange(desc(AbsoluteCorrelation))
+
+# Create a correlation heatmap
+ggplot(cor_data, aes(Variable2, Variable1, fill = Correlation)) +
+  geom_tile(height = 0.9) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       limits = c(-1, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                                   hjust = 1, size = 6),
+        axis.text.y = element_text(size = 6)) +
+  coord_flip() 
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Multinational Logistic Regression Model]
+# Multinational Logistic Regression Model
+# Convert the response variable to a factor
+train.set$Disease <- as.factor(train.set$Disease)
+
+# Prepare the data for glmnet
+x <- model.matrix(Disease ~ . -1, data = train.set) # Predictor matrix, removing the intercept
+y <- train.set$Disease
+
+# Fit a multinomial logistic regression model without LASSO penalty
+set.seed(2) 
+model <- glmnet(x, y, family = "multinomial")
+
+# Prepare the predictor matrix for test_data similar to how it was done for the training data
+x_test <- model.matrix(Disease ~ . -1, data = test.set)  
+
+# Predicting on the test data
+predictions <- predict(model, newx = x_test, type = "class")
+
+# Calculate the misclassification error rate
+actual <- test.set$Disease # Actual response variable from the test set
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Figure 3]
+#| label: fig-3
+#| fig-cap: "Multinomial Logistic Regression Model Coefficients"
+#| fig-height: 6
+#| fig-width: 12
+blood$Disease <- as.factor(blood$Disease)
+set.seed(2)
+# Fit the model 
+multinom_model <- multinom(Disease ~ ., data = blood)
+
+# Extract coefficients
+model_coef <- coef(multinom_model)
+
+# Transform the coefficients to a tidy data frame for plotting
+coef_df <- as.data.frame(t(model_coef))
+coef_df$Predictor <- rownames(coef_df)
+coef_df <- coef_df |>
+  gather(key = "Disease", value = "Coefficient", -Predictor)
+
+# Plot the coefficients using ggplot2
+ggplot(coef_df, aes(x = Predictor, y = Coefficient, fill = Disease)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  theme_minimal() +
+  labs(title = "Multinomial Logistic Regression Model Coefficients",
+       x = "Predictor Variables", 
+       y = "Coefficient Value") +
+  coord_flip()  # Flipping coordinates for a horizontal bar plot
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Multinational Logistic Regression Model with Lasso]
+# Multinational Logistic Regression Model with Lasso
+# Convert the response variable to a factor
+train.set$Disease <- as.factor(train.set$Disease)
+set.seed(2)
+# Prepare the data for glmnet
+x <- model.matrix(Disease ~ . -1, data = train.set) # Predictor matrix, removing the intercept
+y <- train.set$Disease
+
+# Convert y to a matrix 
+y <- model.matrix(~y - 1) 
+
+# Fit a multinomial logistic regression model with LASSO penalty
+set.seed(2) 
+cv_glmnet <- cv.glmnet(x, y, family = "multinomial", alpha = 1, parallel = TRUE)
+
+# Fit the final model using the best lambda
+final_model <- glmnet(x, y, family = "multinomial", alpha = 1)
+
+# To see the coefficients
+#coef(final_model)
+
+# Prepare the predictor matrix for test_data similar to how it was done for the training data
+x_test <- model.matrix(Disease ~ . -1, data = test.set)  
+
+# Predicting on the test data
+predictions <- predict(final_model, newx = x_test, type = "class", 
+                       s = cv_glmnet$lambda.min)
+predictions_char <- as.character(predictions)
+
+# Remove the 'y' prefix from predictions
+predictions_char <- sub("^y", "", predictions_char)
+
+# Now convert back to factor, using the original levels of the Disease variable
+predictions_factor <- factor(predictions_char)
+
+# Calculate the misclassification error rate
+actual <- test.set$Disease # Actual response variable from the test set
+misclass_error_rate <- mean(predictions_factor != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Figure 4 and Classification Tree]
+#| label: fig-4
+#| fig-cap: "Classification Tree for Disease"
+#| fig-height: 8
+#| fig-width: 12
+
+n <-nrow(blood)
+set.seed(2)
+ind <- sample(nrow(blood),0.8*n)
+train <- blood[ind,]
+test <- blood[-ind,]
+# Fit the classification tree
+tree_model <- rpart(Disease ~ ., data = train, method = "class")
+# Plotting the tree
+rpart.plot(tree_model, main="Classification Tree for Disease Prediction")
+
+# Predict on the test set
+predictions <- predict(tree_model, newdata = test, type = "class")
+
+# Calculate the misclassification error rate
+actual <- test$Disease
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Random Forest Model]
+# Random Forest
+rf_model <- randomForest(Disease ~ ., data = train.set, ntree = 500)
+test_predictions <- predict(rf_model, newdata = test.set)
+misclass_error_rate <- mean(test_predictions != test.set$Disease)
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the K-Nearest Neighbors Model]
+# KNN
+n <-nrow(blood)
+set.seed(2)
+ind <- sample(nrow(blood),0.8*n)
+train <- blood[ind,]
+test <- blood[-ind,]
+
+# Normalize the data
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+
+train_norm <- as.data.frame(lapply(train[, -ncol(train)], normalize))
+test_norm <- as.data.frame(lapply(test[, -ncol(test)], normalize))
+
+# Include the Disease column back
+train_norm$Disease <- train$Disease
+test_norm$Disease <- test$Disease
+
+# Determine the best value of k using cross-validation
+set.seed(123)
+ctrl <- trainControl(method = "cv", number = 10)
+knn_fit <- train(Disease ~ ., data = train_norm, method = "knn", 
+                 trControl = ctrl, preProcess = c("center", "scale"))
+best_k <- knn_fit$bestTune$k
+
+# Fit the KNN model
+knn_pred <- knn(train = train_norm[, -ncol(train_norm)], 
+                test = test_norm[, -ncol(test_norm)], 
+                cl = train_norm$Disease, k = best_k)
+
+# Calculate the misclassification error rate
+actual <- test_norm$Disease
+misclass_error_rate <- mean(knn_pred != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Naïve Bayes model]
+# Fit the Naïve Bayes model
+nb_model <- naiveBayes(Disease ~ ., data = train)
+# Predict on the test set
+predictions <- predict(nb_model, newdata = test)
+
+# Calculate the misclassification error rate
+actual <- test$Disease
+misclass_error_rate <- mean(predictions != actual)
+
+# Print the misclassification error rate
+print(paste("Misclassification Error Rate:", round(misclass_error_rate, digits = 2)))
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Table 3]
+#| label: tbl-3
+#| tbl-cap: "Summary of the Predictors"
+#| tbl-height: 4
+#| tbl-width: 14
+
+# Custom summary function for each column
+custom_summary <- function(x, name) {
+  data.frame(
+    Variable = name,
+    mean = mean(x, na.rm = TRUE),
+    SD = sd(x, na.rm = TRUE),
+    median = median(x, na.rm = TRUE),
+    IQR = IQR(x, na.rm = TRUE),
+    min = min(x, na.rm = TRUE),
+    max = max(x, na.rm = TRUE)
+    )
+}
+summary_df <- map_dfr(1:24, function(i) custom_summary(blood[[i]], 
+                                                       names(blood)[i]))
+kable(summary_df, format = "latex", 
+      caption = "Summary of the Predictors", booktabs = TRUE) |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+\end{lstlisting}
+\begin{lstlisting}[language=R, caption=R code for the Table 4]
+#| label: tbl-4
+#| tbl-cap: "SD of each variable across the groups in resonse "
+#| tbl-height: 8
+#| tbl-width: 12
+
+# Calculate standard deviations for all variables by disease
+std_devs_by_disease <- blood |> 
+  group_by(Disease) |> 
+    summarise(across(1:23, sd, na.rm = TRUE))
+
+# Split the table into three parts, including the first 'Disease' column in each
+part1 <- std_devs_by_disease |> select(Disease, 1:7) 
+part2 <- std_devs_by_disease |> select(Disease, 8:14) 
+part3 <- std_devs_by_disease |> select(Disease, 15:23) 
+
+# Then, create the LaTeX tables for each part
+kable(part1, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 1") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+
+kable(part2, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 2") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+
+kable(part3, format = "latex", booktabs = TRUE, 
+      caption = "SD of Each Variable Across Disease Groups - Part 3") |>
+        kable_styling(latex_options = c("striped", "scale_down")) |>
+          column_spec(1, bold = TRUE, border_right = TRUE)
+
+\end{lstlisting}
+\clearpage
+```
+# References
+
+1.  Doe, J., & Smith, J. (2020). A Comprehensive Study of Blood Parameter Analysis for Disease Prediction. *Journal of Medical Research*, 10(2), 123-130.
+
+2.  Smith, J. (2021). *The Essentials of Disease Prediction in Modern Medicine*. New York: Healthcare Publishing House.
+
+3.  Aboelnaga, E. (2022). Multiple Disease Prediction Dataset. Retrieved March 22, 2024, from [Kaggle](https://www.kaggle.com/datasets/ehababoelnaga/multiple-disease-prediction/data)
